@@ -256,7 +256,8 @@ function buildURL(token){
   var date=document.getElementById('date').value;
   var time=document.getElementById('time').value;
   var base=window.location.href.split('?')[0];
-  return base+'?s=1&course='+course+'&date='+date+'&time='+time+'&t='+token+'&exp='+sExpiry+'&rot='+rotEvery;
+  // tg = timestamp when this QR was generated (used to detect old/shared screenshots)
+  return base+'?s=1&course='+course+'&date='+date+'&time='+time+'&t='+token+'&exp='+sExpiry+'&rot='+rotEvery+'&tg='+Date.now();
 }
 
 function startSession(){
@@ -336,14 +337,17 @@ window.addEventListener('storage',function(e){
 var sess=null;
 function initStudent(p){
   document.getElementById('stu').classList.add('show');
-  sess={course:decodeURIComponent(p.get('course')||'المحاضرة'),date:p.get('date')||'',time:p.get('time')||'',token:p.get('t')||'',exp:parseInt(p.get('exp'))||0,rot:parseInt(p.get('rot'))||20};
+  sess={course:decodeURIComponent(p.get('course')||'المحاضرة'),date:p.get('date')||'',time:p.get('time')||'',token:p.get('t')||'',exp:parseInt(p.get('exp'))||0,rot:parseInt(p.get('rot'))||20,tg:parseInt(p.get('tg'))||0};
   document.getElementById('mc').textContent=sess.course;
   document.getElementById('md').textContent=sess.date||'—';
   document.getElementById('mt').textContent=sess.time||'—';
-  // The QR token is only valid for rot+10 sec grace — a shared screenshot expires fast
-  var tokenAge=Date.now()-parseInt(sess.token.substr(0,8),36);
+  // Check 1: whole session expired (lecture ended)
   if(sess.exp&&Date.now()>sess.exp){showExpired();return;}
-  if(tokenAge>(sess.rot+15)*1000){showExpired();return;}
+  // Check 2: this specific QR is old (a shared screenshot) — grace = rotation + 20s buffer
+  if(sess.tg>0){
+    var ageSec=(Date.now()-sess.tg)/1000;
+    if(ageSec>sess.rot+20){showExpired();return;}
+  }
 }
 
 function showExpired(){
